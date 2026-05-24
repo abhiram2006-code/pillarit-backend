@@ -1,19 +1,65 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-const pool = require("./db");
+const { Pool } = require("pg");
+
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+
+// SUPABASE
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+
+// POSTGRESQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
+
+// JWT SECRET
 const JWT_SECRET = "PILLARIT_SECRET_2026";
 
+
+// HOME
 app.get("/", (req, res) => {
   res.send("Backend Running");
+});
+
+
+// TEST SUPABASE
+app.get("/test", async (req, res) => {
+
+  const { data, error } = await supabase
+    .from("members")
+    .insert([
+      {
+        username: "Abhiram",
+        email: "test@gmail.com",
+        password: "123456"
+      }
+    ]);
+
+  if (error) {
+    return res.json(error);
+  }
+
+  res.json(data);
+
 });
 
 
@@ -30,7 +76,9 @@ app.post("/register", async (req, res) => {
     );
 
     if (userCheck.rows.length > 0) {
-      return res.json({ message: "Email already exists" });
+      return res.json({
+        message: "Email already exists"
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -65,7 +113,9 @@ app.post("/login", async (req, res) => {
     );
 
     if (user.rows.length === 0) {
-      return res.json({ message: "User not found" });
+      return res.json({
+        message: "User not found"
+      });
     }
 
     const validPassword = await bcrypt.compare(
@@ -74,7 +124,9 @@ app.post("/login", async (req, res) => {
     );
 
     if (!validPassword) {
-      return res.json({ message: "Wrong password" });
+      return res.json({
+        message: "Wrong password"
+      });
     }
 
     const token = jwt.sign(
@@ -83,7 +135,9 @@ app.post("/login", async (req, res) => {
         email: user.rows[0].email
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      {
+        expiresIn: "7d"
+      }
     );
 
     res.json({
@@ -103,6 +157,7 @@ app.post("/login", async (req, res) => {
 });
 
 
+// START SERVER
 app.listen(5000, () => {
   console.log("Server Running On Port 5000");
 });
